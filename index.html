@@ -2,14 +2,14 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Beinstrecker – Blackout Gym Traunreut</title>
 <script>
   // Intro beim Seitenaufruf (vor dem ersten Bild entschieden, damit die UI nicht aufblitzt):
   // ?intro=0 aus, ?intro=1 erzwingen, ?introT=<0..1> Standbild. Testparameter und „Bewegung reduzieren" schalten es ab.
   (() => {
     const q = new URLSearchParams(location.search);
-    const test = ['focus', 'set', 'click', 'drag', 'then', 'arm', 'cover', 'az', 'view', 'figure', 'mt', 'seg', 'test'].some((k) => q.has(k));
+    const test = ['focus', 'set', 'click', 'drag', 'then', 'arm', 'cover', 'az', 'view', 'figure', 'mt', 'seg', 'test', 'map'].some((k) => q.has(k));
     const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.INTRO = q.has('introT') || q.get('intro') === '1' || (q.get('intro') !== '0' && !test && !calm);
     if (window.INTRO) document.documentElement.classList.add('intro');
@@ -24,7 +24,11 @@
           --track: #1B1B1D; --pill: #3A3A3D; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
                font: 13px/1.4 Geist, -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
   canvas { display: block; touch-action: none; }
+  /* Touch: kein Seiten-Zoom, kein Ziehen zum Neuladen, keine Textauswahl beim langen Drücken (Leiste darf seitlich schieben) */
+  @media (pointer: coarse) { html, body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    #sets { touch-action: pan-x; } }
   [hidden] { display: none !important; }
   body.instant, body.instant * { transition: none !important; }
   /* Intro: UI unsichtbar und nicht klickbar, bis das Gerät steht; die Deckkraft je Element setzt tick() */
@@ -52,6 +56,7 @@
          -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
   #map svg { display: block; }
   #map span { opacity: .6; }
+  #mapbtn, #done svg { display: none; }       /* nur am Handy: Karte als Chip, „Fertig" als Haken */
 
   #title { left: 40px; bottom: 40px; max-width: 400px; }
   #title h1 { margin: 0 0 8px -3px; font-size: clamp(40px, 5.2vw, 64px); line-height: 1.05; font-weight: 600; letter-spacing: -.04em; }
@@ -126,12 +131,78 @@
   /* Schmaler: Umschalter ganz unten, Titel und Logo rücken darüber */
   @media (max-width: 1520px) { body.focus #title { bottom: 116px; } }   /* Einstell-Leiste ist breiter als der Umschalter */
   @media (max-width: 1220px) { #dock { bottom: 24px; } #title { bottom: 116px; } #logo { bottom: 116px; } }
-  @media (max-width: 760px) { #title p, #hint { display: none; } #top { top: 30px; gap: 10px; } #gym { height: 56px; } #map { transform: scale(.8); transform-origin: top right; } #logo { width: 64px; padding: 7px 9px; border-radius: 10px; }
-    #title { bottom: 88px; } #title h1 { font-size: 34px; } #logo { bottom: 92px; }
-    #dock { left: 40px; right: 40px; bottom: 28px; transform: none; align-items: stretch; } #views button { padding: 0 8px; }
-    body.focus #dock { left: 16px; right: 16px; } #bar > * { justify-self: stretch; }
-    #sets { flex: 1; min-width: 0; } #sets button { flex: 1 0 auto; padding: 0 10px; } #done { padding: 0 16px; }
-    #sets .long { display: none; } #sets .short { display: inline; } }
+
+  /* Kompakt (unter 1220 px: Tablet, Handy). Die Kamera rahmt das Gerät per JS in die freie Fläche zwischen den Bedienelementen.
+     Im Fokus tritt der Titel zurück, an seiner Stelle steht der Wert groß (nicht am Punkt: dort läge der Finger darauf) */
+  @media (max-width: 1219.98px) {
+    body.focus #title { opacity: 0; }
+    body.focus #title h1 { margin-bottom: 8px; }
+    #value { transform: none !important; left: 40px; top: auto; bottom: 116px; display: grid; gap: 2px; text-shadow: none; }
+    #value b { margin: 0; font-size: 13px; font-weight: 500; opacity: .55; }
+    #value i { font-size: 34px; line-height: 1.05; font-weight: 600; letter-spacing: -.03em; opacity: 1; }
+    #dock #hint.gone { opacity: 0; }                                  /* Hinweis verschwindet, sobald er befolgt wurde */
+  }
+  /* Handy hoch: oben Zurück, Logo, Karten-Chip (tippen klappt den Grundriss auf); unten Titel, Hinweis, Umschalter im Daumenbereich */
+  @media (max-width: 760px) {
+    :root { --pl: calc(16px + env(safe-area-inset-left)); --pr: calc(16px + env(safe-area-inset-right));
+            --pt: calc(12px + env(safe-area-inset-top)); --pb: max(18px, calc(env(safe-area-inset-bottom) + 6px)); }
+    #top { top: var(--pt); left: var(--pl); gap: 10px; }
+    #gym { height: 48px; }
+    #mapbtn { display: flex; align-items: center; gap: 9px; top: var(--pt); right: var(--pr); height: 44px; padding: 0 15px 0 13px; box-sizing: border-box;
+              border-radius: 22px; background: var(--card); border: 1px solid var(--line); font-size: 12px; font-weight: 500; color: rgba(255,255,255,.78);
+              -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: background .2s, opacity .4s; }
+    #mapbtn svg { display: block; }
+    body.mapopen #mapbtn { background: rgba(255,255,255,.12); }
+    #map { top: calc(var(--pt) + 52px); right: var(--pr); background: rgba(22,22,24,.94); z-index: 2; visibility: hidden; opacity: 0; transition: opacity .2s, visibility .2s; }
+    body.mapopen #map { visibility: visible; opacity: 1; }
+    #title, body.focus #title { left: var(--pl); bottom: calc(var(--pb) + 87px); max-width: none; }
+    #title p { display: none; }
+    #title h1 { font-size: 34px; }
+    #logo { right: var(--pr); bottom: calc(var(--pb) + 91px); width: 64px; padding: 7px 9px; border-radius: 10px; }
+    #value { left: var(--pl); bottom: calc(var(--pb) + 95px); }
+    #dock { left: var(--pl); right: var(--pr); bottom: var(--pb); transform: none; align-items: stretch; gap: 10px; }
+    #hint { text-align: center; line-height: 17px; }
+    #bar > * { justify-self: stretch; }
+    .seg { padding: 0 4px; }                                             /* Tasten 44 px hoch, Pille bleibt 36 px wie am Desktop */
+    .seg button { height: 44px; }
+    #views button { padding: 0 8px; }
+    #sets { flex: 1; min-width: 0; } #sets button { flex: 1 0 auto; padding: 0 10px; }
+    #sets .long { display: none; } #sets .short { display: inline; }
+    #done { padding: 0 16px; }
+  }
+  @media (max-width: 480px) {                                            /* „Fertig" als runder Haken, damit die Leiste auch bei 360 px passt */
+    #done { width: 46px; padding: 0; display: grid; place-items: center; }
+    #done span { display: none; } #done svg { display: block; }
+  }
+  @media (max-width: 370px) { #title h1 { font-size: 30px; } #value i { font-size: 30px; } #sets button { padding: 0 8px; } }
+  /* Handy quer: eine Zeile oben (Zurück, Logos, Karten-Chip), eine unten (Titel links, Umschalter rechts im Daumenbereich) */
+  @media (max-height: 500px) and (orientation: landscape) and (max-width: 1219.98px) {
+    :root { --pl: calc(16px + env(safe-area-inset-left)); --pr: calc(16px + env(safe-area-inset-right));
+            --pt: calc(10px + env(safe-area-inset-top)); --pb: max(12px, calc(env(safe-area-inset-bottom) + 4px)); }
+    #top { top: var(--pt); left: var(--pl); gap: 10px; }
+    #gym { height: 44px; }
+    #mapbtn { display: flex; align-items: center; gap: 9px; top: var(--pt); right: var(--pr); height: 44px; padding: 0 15px 0 13px; box-sizing: border-box;
+              border-radius: 22px; background: var(--card); border: 1px solid var(--line); font-size: 12px; font-weight: 500; color: rgba(255,255,255,.78);
+              -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: background .2s, opacity .4s; }
+    #mapbtn svg { display: block; }
+    body.mapopen #mapbtn { background: rgba(255,255,255,.12); }
+    #map { top: calc(var(--pt) + 52px); right: var(--pr); background: rgba(22,22,24,.94); z-index: 2; visibility: hidden; opacity: 0; transition: opacity .2s, visibility .2s; transform: none; }
+    body.mapopen #map { visibility: visible; opacity: 1; }
+    #title, body.focus #title { left: var(--pl); bottom: calc(var(--pb) + 7px); max-width: none; }
+    #title p { display: none; }
+    #title h1 { font-size: 30px; margin-bottom: 0; }
+    body.focus #title h1 { margin-bottom: 0; }
+    #logo { top: calc(var(--pt) + 10px); bottom: auto; left: calc(var(--pl) + 114px); right: auto; width: 56px; padding: 6px 8px; border-radius: 9px; }
+    #value { left: var(--pl); bottom: calc(var(--pb) + 2px); }
+    #value i { font-size: 28px; }
+    #dock { left: auto; right: var(--pr); bottom: var(--pb); transform: none; align-items: flex-end; gap: 8px; }
+    #hint { text-align: right; }
+    #bar > * { justify-self: end; }
+    .seg { padding: 0 4px; }
+    .seg button { height: 44px; }
+    #sets .long { display: none; } #sets .short { display: inline; }
+    #sets button { padding: 0 14px; }
+  }
 </style>
 <script type="importmap">
 { "imports": {
@@ -171,6 +242,11 @@
   </svg>
   <span>Kraftbereich · Reihe 2</span>
 </div>
+<button id="mapbtn" class="ui" aria-expanded="false" aria-controls="map" aria-label="Lage im Gym: Kraftbereich, Reihe 2">
+  <svg width="24" height="14" viewBox="0 0 196 104" fill="none"><path d="M3 3H193V101H72V62H3Z" stroke="currentColor" stroke-opacity=".55" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <circle cx="155" cy="52" r="20" fill="currentColor"/></svg>
+  <span>Kraftbereich · Reihe 2</span>
+</button>
 
 <div id="title" class="ui">
   <h1>Beinstrecker</h1>
@@ -187,7 +263,7 @@
       <div id="sets" class="seg" role="group" aria-label="Einstellung"><i></i>
         <button data-key="back" aria-label="Rückenpolster"><span class="long">Rückenpolster</span><span class="short">Rücken</span></button><button data-key="weight" aria-label="Gewicht">Gewicht</button><button data-key="pad" aria-label="Fußpolster"><span class="long">Fußpolster</span><span class="short">Fuß</span></button><button data-key="rom" aria-label="Bewegungsumfang"><span class="long">Bewegungsumfang</span><span class="short">Umfang</span></button>
       </div>
-      <button id="done">Fertig</button>
+      <button id="done" aria-label="Fertig"><span>Fertig</span><svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M3.5 9.5l3.6 3.6 7.4-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
   </div>
 </div>
@@ -203,8 +279,13 @@ const V3 = THREE.Vector3, rad = THREE.MathUtils.degToRad, clamp = THREE.MathUtil
 const q = new URLSearchParams(location.search);
 const BG = new THREE.Color('#0A0A0B'), BG_FOCUS = new THREE.Color('#030303');   // BG = --bg im CSS
 
+// Kompakt (< 1220 px, wie im CSS): Kamera rahmt das Gerät in die freie Fläche. LOW: Touch-Gerät oder kleiner Bildschirm,
+// dort spart die Seite (Pixeldichte, Schattenkarte, Umrisslinien im Intro nur jedes zweite Bild)
+const mqCompact = matchMedia('(max-width: 1219.98px)'), compact = () => mqCompact.matches;
+const COARSE = matchMedia('(pointer: coarse)').matches;
+const LOW = COARSE || Math.min(window.screen.width, window.screen.height) < 600;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, LOW ? 1.75 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -252,7 +333,7 @@ const spot = new THREE.SpotLight(0xffffff, LIT.spot, 0, 0.46, 0.9, 2);
 spot.position.set(-0.45, 3.7, -0.75);
 spot.target.position.copy(C).setY(0.3);
 spot.castShadow = true;
-spot.shadow.mapSize.set(2048, 2048);
+spot.shadow.mapSize.setScalar(LOW ? 1024 : 2048);
 spot.shadow.bias = -0.0004;
 spot.shadow.normalBias = 0.02;
 spot.shadow.radius = 4;
@@ -296,7 +377,7 @@ const across = (x) => Math.exp(-(((x - 0.5) / 0.14) ** 2));
 const glowTex = tex(64, 128, (x, y) => across(x) * Math.min(1, y / 0.1) * (y > 0.85 ? 1 - 0.73 * (y - 0.85) / 0.15 : 1));   // unten leiser, geht in den Spiegel-Schein über
 const reflTex = tex(64, 128, (x, y) => across(x) * (1 - y) ** 1.6);
 const fadeDown = tex(4, 128, (x, y) => (1 - y) ** 1.3, true);
-const ledMats = [], glows = [], ledParts = [];
+const ledMats = [], glows = [], ledParts = [], ledSets = [];
 const ledMat = (opts, k) => { const m = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, depthWrite: false, ...opts }); m.userData.k = k; ledMats.push(m); return m; };
 const glowMesh = (map, k, w, h, y, p) => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), ledMat({ map, blending: THREE.AdditiveBlending }, k));
@@ -310,6 +391,25 @@ for (const p of LED) {
   const parts = [core, refl, glowMesh(glowTex, 0.3, 0.55, LED_H, LED_H / 2, p), glowMesh(reflTex, 0.08, 0.5, 1.1, -0.55, p)];
   scene.add(...parts);
   ledParts.push(...parts);                               // alle am Boden verankert: Intro lässt sie von dort wachsen
+  ledSets.push(parts);
+}
+// Hochformat (kompakt): die Linien stünden außerhalb des Bildes. Dann rücken sie seitlich näher heran, bis sie in der
+// Startansicht bei ±78 % der halben Bildbreite stehen; Kantenlichter und Spiegelung der Umgebung bleiben, wo sie sind.
+function placeLeds(p) {
+  const ks = [-1, 1].map((s) => {
+    if (!p || camera.aspect >= 1) return 2.7;
+    const c = camera.clone();
+    c.position.copy(p.pos); c.lookAt(p.tgt); c.updateMatrixWorld(); applyView(c, p);
+    const x = (k) => Math.abs(C.clone().addScaledVector(BEHIND, 6.4).addScaledVector(SIDE, s * k).setY(1).project(c).x);
+    if (x(2.7) <= 0.78) return 2.7;
+    let a = 0.3, b = 2.7;
+    for (let i = 0; i < 24; i++) { const m = (a + b) / 2; if (x(m) > 0.78) b = m; else a = m; }
+    return a;
+  });
+  ledSets.forEach((parts, i) => {
+    const q = C.clone().addScaledVector(BEHIND, 6.4).addScaledVector(SIDE, (i ? 1 : -1) * ks[i]);
+    parts.forEach((o) => { o.position.x = q.x; o.position.z = q.z; });
+  });
 }
 
 // Kamera-Ansichten: Ziel, Blickrichtung zur Kamera, Abstand (Meter, glTF: Y oben, -Z vorne)
@@ -320,12 +420,128 @@ const VIEW = {
   pad:      { tgt: [0.20, 0.40, -0.05], dir: [-1, 0.2, -0.45], dist: 1.8 },
   rom:      { tgt: [0.72, 0.60, -0.04], dir: [-1, 0.42, 0.14], dist: 2.2 },
 };
-const pose = (v) => {
+for (const k in VIEW) VIEW[k].key = k;
+const poseFixed = (v, dir) => {                                   // Desktop (ab 1220 px): feste Ansichten
   const tgt = new V3(...v.tgt);
   const dist = v.dist * Math.max(1, 1.45 / camera.aspect);        // Hochformat: weiter weg
-  return { tgt, pos: tgt.clone().add(new V3(...v.dir).normalize().multiplyScalar(dist)) };
+  return { tgt, pos: tgt.clone().add((dir ? dir.clone() : new V3(...v.dir)).normalize().multiplyScalar(dist)) };
 };
-const setPose = (p) => { camera.position.copy(p.pos); controls.target.copy(p.tgt); controls.update(); };
+
+// Kompakt: Rahmen aus der Bildschirmfläche. Hindernisse sind die sichtbaren Bedienelemente; die Bühne ist das Band zwischen
+// den Elementen oben und unten (Bildmitte des Kamerabilds per setViewOffset in die Mitte des Bandes). Abstand: der kleinste,
+// bei dem alle Punkte des Inhalts (Gerät bzw. Teil + Skala) mit Rand im Band liegen (geschlossen gelöst), Ziel auf die Mitte
+// der projizierten Hülle nachgeführt; danach darf das Gerät bis zu 35 % näher kommen, solange kein Punkt unter einem Element, am Rand oder
+// über der oberen Bandkante liegt (Tablet: neben dem Titel ist oft Platz; Handy quer: zwischen Titel und Umschalter).
+let FRAME = null, buildFrame = null;                              // [{ p, m }] Punkte des Geräts, m = Rand in px; buildFrame nach dem Laden
+const fitCache = new Map(), GAP = 14;
+function uiRects(focus) {
+  const chip = $('mapbtn').getClientRects().length > 0;           // Handy: Karte ist ein Chip, aufgeklappt zählt sie nicht
+  const ids = ['top', chip ? 'mapbtn' : 'map', 'dock', ...(focus ? ['value'] : ['title', 'logo'])];
+  return ids.map($).filter((el) => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden').map((el) => {
+    const t = el.style.translate;                                  // Intro schiebt die Elemente kurz an; Lage ohne das messen
+    el.style.translate = '';
+    const r = el.getBoundingClientRect();
+    el.style.translate = t;
+    return r;
+  }).filter((r) => r.width && r.height);
+}
+function sample(objs, n) {                                       // Eckpunkte sichtbarer Meshes in Weltkoordinaten, ausgedünnt auf ~n
+  const ms = [];
+  objs.forEach((o) => o.traverse((m) => { if (!m.isMesh || m.isSkinnedMesh) return;
+    for (let x = m; x; x = x.parent) if (!x.visible) return;
+    ms.push(m); }));
+  const total = ms.reduce((a, m) => a + m.geometry.attributes.position.count, 0), step = Math.max(1, Math.ceil(total / n)), out = [];
+  for (const m of ms) {
+    m.updateWorldMatrix(true, false);
+    const pa = m.geometry.attributes.position;
+    for (let i = 0; i < pa.count; i += step) out.push(new V3().fromBufferAttribute(pa, i).applyMatrix4(m.matrixWorld));
+  }
+  return out;
+}
+function fitPose(pts, dir, focus, grow = 0.65, air = 0) {         // air: Anteil der Bandhöhe, der oben und unten frei bleibt
+  const W = innerWidth, H = innerHeight, rects = uiRects(focus);
+  let t = 0, b = H;
+  for (const r of rects) { if ((r.top + r.bottom) / 2 < H / 2) t = Math.max(t, r.bottom); else b = Math.min(b, r.top); }
+  t += GAP; b -= GAP;
+  const top = t, h = b - t; t += air * h; b -= air * h;            // top: oben bleibt die Bandkante eine feste Grenze (Luft zur Kopfzeile)
+  const cy = (t + b) / 2;
+  dir = dir.clone().normalize();
+  const R = new V3(0, 1, 0).cross(dir).normalize(), U = dir.clone().cross(R);
+  const f = H / 2 / Math.tan(rad(camera.fov / 2)), rel = new V3();
+  const center = new THREE.Box3().setFromPoints(pts.map((o) => o.p)).getCenter(new V3());
+  const at = (cx) => {                                            // Rahmen bei Bildmitte (cx, cy)
+  const tgt = center.clone();
+  const need = () => {
+    let d = 0;
+    for (const { p, m } of pts) {
+      rel.subVectors(p, tgt);
+      const a = rel.dot(dir), x = rel.dot(R), y = rel.dot(U);
+      d = Math.max(d, a + Math.max(x > 0 ? x * f / (W - m - cx) : -x * f / (cx - m), y > 0 ? y * f / (cy - Math.max(t, m)) : -y * f / (Math.min(b, H - m) - cy)));
+    }
+    return d;
+  };
+  let d = need();
+  for (let i = 0; i < 3; i++) {                                   // projizierte Hülle in die Mitte des Bandes
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const { p } of pts) {
+      rel.subVectors(p, tgt);
+      const z = d - rel.dot(dir), x = rel.dot(R) * f / z, y = rel.dot(U) * f / z;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    tgt.addScaledVector(R, (x0 + x1) / 2 * d / f).addScaledVector(U, (y0 + y1) / 2 * d / f);
+    d = need();
+  }
+  const ok = (dd) => pts.every(({ p, m }) => {
+    rel.subVectors(p, tgt);
+    const z = dd - rel.dot(dir);
+    if (z < 0.1) return false;
+    const x = cx + rel.dot(R) * f / z, y = cy - rel.dot(U) * f / z;
+    return x > m && x < W - m && y > Math.max(m, top) && y < H - m && !rects.some((r) => x > r.left - GAP && x < r.right + GAP && y > r.top - GAP && y < r.bottom + GAP);
+  });
+  let best = d;
+  for (let s = 0.985; s >= grow; s -= 0.015) { if (!ok(d * s)) break; best = d * s; }
+  return { tgt, pos: tgt.clone().addScaledVector(dir, best), cx, cy, dist: best };
+  };
+  // Stehen Elemente nur in einer Ecke (Handy quer: Umschalter unten rechts), darf die Bildmitte seitlich ausweichen,
+  // wenn das Gerät dadurch deutlich größer wird (mind. 6 %); sonst bleibt es mittig
+  let res = at(W / 2);
+  if (grow < 1) for (const k of [-0.08, 0.08, -0.16, 0.16]) { const r = at(W / 2 + k * W); if (r.dist < res.dist * 0.94) res = r; }
+  return res;
+}
+function focusPts(s) {                                            // Teil + Skala (Raststriche, Pfeilspitzen und Punkt brauchen mehr Rand)
+  // Polster an beiden Enden ihres Wegs (der Rahmen bleibt beim Verstellen stehen); Gewicht und Bewegungsumfang in der aktuellen
+  // Stellung (der Arm schwenkt zu weit, das Bild würde zu klein: Skala und Nabe bleiben im Bild, der Arm darf hinausragen)
+  const ends = s.discrete || s.title === 'Bewegungsumfang' ? [null] : [s.min, s.max], pts = [];
+  for (const v of ends) {
+    if (v !== null) { s.apply(v); scene.updateMatrixWorld(true); }
+    pts.push(...sample(s.obj(), 600).map((p) => ({ p, m: 40 })));  // mit Luft, damit die Umgebung sichtbar bleibt
+  }
+  if (ends[0] !== null) { s.apply(s.cur); scene.updateMatrixWorld(true); }
+  for (let v = s.min; v <= s.max + 1e-6; v += 0.25) pts.push({ p: s.pt(v), m: 44 }, { p: s.tick(Math.min(v, s.max)), m: 44 });
+  return pts;
+}
+const pose = (v, dir) => {
+  if (!compact() || (v.key === 'overview' ? !buildFrame : !settings[v.key])) return poseFixed(v, dir);
+  if (!FRAME) buildFrame();
+  const d = dir || new V3(...v.dir);
+  if (v.key !== 'overview') {                                     // Fokus: nicht näher als 60 % des Desktop-Abstands (sonst fehlt der Zusammenhang)
+    fillValue(settings[v.key]);
+    const p = fitPose(focusPts(settings[v.key]), d, true, 0.65, 0.07), dir = p.pos.clone().sub(p.tgt).normalize();
+    p.dist = Math.max(p.dist, 0.7 * v.dist);
+    p.pos.copy(p.tgt).addScaledVector(dir, p.dist);
+    return p;
+  }
+  const k = [innerWidth, innerHeight, ...d.clone().normalize().toArray().map((x) => x.toFixed(4))].join();
+  if (!fitCache.has(k)) fitCache.set(k, fitPose(FRAME, d, false));
+  const p = fitCache.get(k);
+  return { ...p, tgt: p.tgt.clone(), pos: p.pos.clone() };
+};
+function applyView(cam, p) {                                      // Bildmitte der Kamera auf (cx, cy) legen; Desktop: keine Verschiebung
+  if (p.cx != null) cam.setViewOffset(innerWidth, innerHeight, innerWidth / 2 - p.cx, innerHeight / 2 - p.cy, innerWidth, innerHeight);
+  else if (cam.view && cam.view.enabled) cam.clearViewOffset();
+}
+const viewCenter = () => camera.view && camera.view.enabled ? [innerWidth / 2 - camera.view.offsetX, innerHeight / 2 - camera.view.offsetY] : [innerWidth / 2, innerHeight / 2];
+const setPose = (p) => { camera.position.copy(p.pos); controls.target.copy(p.tgt); applyView(camera, p); controls.update(); };
 setPose(pose(VIEW.overview));
 
 let settings = {};            // back / weight / pad / rom, nach dem Laden gefüllt
@@ -368,6 +584,7 @@ function setView(v, instant) {
   seg.forEach((b) => { const on = b.dataset.view === v; b.setAttribute('aria-pressed', on); b.tabIndex = on ? 0 : -1; });
   $('views').style.setProperty('--i', segOn().findIndex((b) => b.dataset.view === v));
   $('hint').textContent = HINT[v];
+  hintGone();
   $('hotspots').hidden = v !== 'geraet';
   const pads = FIT.map((k) => settings[k]).filter(Boolean);
   if (was === 'geraet') { saved = pads.map((s) => s.value); pads.forEach((s) => (s.value = s.def)); }   // eigene Werte merken
@@ -395,6 +612,14 @@ $('views').addEventListener('keydown', (e) => {    // Pfeiltasten nur, solange d
   setView(b.dataset.view);
   b.focus();
 });
+
+// Handy: Karten-Chip klappt den Grundriss auf; Tippen daneben oder Esc schließt ihn
+const mapOpen = (on) => { document.body.classList.toggle('mapopen', on); $('mapbtn').setAttribute('aria-expanded', on); };
+$('mapbtn').onclick = () => mapOpen(!document.body.classList.contains('mapopen'));
+addEventListener('pointerdown', (e) => { if (!e.target.closest?.('#map, #mapbtn')) mapOpen(false); }, true);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') mapOpen(false); });
+// iOS: Seiten-Zoom per Zwei-Finger-Geste aus (touch-action reicht dort nicht überall)
+if (COARSE) document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 new GLTFLoader().load(GLB, (gltf) => {
   const model = gltf.scene;
@@ -491,6 +716,24 @@ new GLTFLoader().load(GLB, (gltf) => {
       grab: () => onArm(new V3(piv.x, piv.y - 0.2, piv.z)),   // Armrohr unter der Nabe
       apply: (v) => { romK = clamp((v - 1) * stepDeg / maxDeg, 0, 1); setArm(armK); } };
   }
+
+  // --- Rahmen (kompakt): Punkte des Geräts in Ruhe und mit gestrecktem Arm (Bewegung), Figur in Sitzhaltung.
+  // Erst bei Bedarf gesammelt (Desktop braucht sie nie); der Arm steht danach wieder wie vorher
+  buildFrame = () => {
+    const k = armK, pts = [];
+    setArm(0); model.updateMatrixWorld(true);
+    pts.push(...sample([model], 2400));
+    figure.forEach((f) => f.traverse((m) => {            // Figur (gehäutet): Eckpunkte, damit der Kopf frei bleibt
+      if (!m.isSkinnedMesh) return;
+      const n = m.geometry.attributes.position.count, st = Math.max(1, Math.ceil(n / 300));
+      for (let i = 0; i < n; i += st) pts.push(m.getVertexPosition(i, new V3()).applyMatrix4(m.matrixWorld));
+    }));
+    setArm(DEMO_MAX); model.updateMatrixWorld(true);
+    pts.push(...sample([arm], 500));
+    setArm(k); model.updateMatrixWorld(true);
+    FRAME = pts.map((p) => ({ p, m: 26 }));
+  };
+  if (compact()) { const p = pose(VIEW.overview); setPose(p); placeLeds(p); }
 
   // --- Hotspots: HTML-Punkte, die jedem Bild der 3D-Position folgen
   for (const [key, s] of Object.entries(settings)) {
@@ -615,6 +858,101 @@ new GLTFLoader().load(GLB, (gltf) => {
     dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); run(90);
     log('esc', { mode, rom: settings.rom.value, armDeg: armDeg() });
   }
+  // ?test=mobil: Rahmen, Abstände zu den Bedienelementen, Tippflächen, Fokus je Einstellung (px je Stufe, Teil und Skala frei),
+  // Touch: Ziehen, Pinch im Fokus (verstellt nicht, beendet nicht), Tippen ins Leere, Orbit und Pinch in der Übersicht, Karten-Chip.
+  // ?test=dreh: Fußpolster-Fokus, dann (Seite im iframe, das der Test von außen umschaltet) Rahmen nach der Größenänderung
+  if (q.get('test') === 'mobil' || q.get('test') === 'dreh') {
+    const run = (n) => { for (let i = 0; i < n; i++) tick(1 / 60); };
+    const log = (tag, o) => console.log('TEST ' + tag, JSON.stringify(o));
+    const r0 = Math.round, r2 = (v) => +v.toFixed(2);
+    const touch = (type, x, y, id = 11) => cv.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, pointerId: id, pointerType: 'touch', isPrimary: id === 11, bubbles: true }));
+    const rectOf = (id) => { const r = $(id).getBoundingClientRect(); return [r0(r.left), r0(r.top), r0(r.right), r0(r.bottom)]; };
+    const check = (pts, focus) => {                       // Punkte außerhalb des Bildes / unter Bedienelementen, Hülle am Bildschirm
+      const rects = uiRects(focus);
+      let out = 0, under = 0, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (const o of pts) {
+        const [x, y] = screen(o.p || o);
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+        if (x < 0 || x > innerWidth || y < 0 || y > innerHeight) out++;
+        else if (rects.some((r) => x > r.left && x < r.right && y > r.top && y < r.bottom)) under++;
+      }
+      return { n: pts.length, out, under, box: [x0, y0, x1, y1].map(r0) };
+    };
+    const small = () => [...document.querySelectorAll('button')].filter((b) => b.getClientRects().length && !b.closest('[hidden]') && getComputedStyle(b).visibility !== 'hidden'
+        && getComputedStyle(b.closest('.ui, #hotspots') || b).opacity !== '0')
+      .map((b) => { const r = b.getBoundingClientRect(); return [b.id || b.dataset.view || b.dataset.key || b.className, r0(r.width), r0(r.height)]; })
+      .filter(([, w, h]) => w < 44 || h < 44);
+    const layout = (tag) => log(tag, { size: [innerWidth, innerHeight], compact: compact(), low: LOW, mode,
+      ui: Object.fromEntries(['top', 'mapbtn', 'map', 'title', 'logo', 'dock'].map((id) => [id, rectOf(id)])),
+      dist: r2(camera.position.distanceTo(controls.target)), center: viewCenter().map(r0), machine: check(FRAME || [], false),
+      leds: ledSets.map((ps) => r2(ps[0].position.clone().setY(1).project(camera).x)), under44: small() });
+    const focusInfo = (key) => {
+      const s = settings[key], d = [];
+      for (let v = s.min; v < s.max; v++) { const a = screen(s.pt(v)), b = screen(s.pt(v + 1)); d.push(Math.hypot(a[0] - b[0], a[1] - b[1])); }
+      const part = check(sample(s.obj(), 600), true), curve = [];
+      for (let v = s.min; v <= s.max; v += 0.25) curve.push(s.pt(v), s.tick(Math.min(v, s.max)));
+      const vr = $('value').getBoundingClientRect(), b = part.box;
+      return { mode, pxPerStep: [r0(Math.min(...d)), r0(d.reduce((a, x) => a + x, 0) / d.length)], part, curve: check(curve, true), value: rectOf('value'),
+        valueOnPart: vr.left < b[2] && vr.right > b[0] && vr.top < b[3] && vr.bottom > b[1], setsFit: $('sets').scrollWidth <= $('sets').clientWidth + 1,
+        dock: rectOf('dock'), dist: r2(camera.position.distanceTo(controls.target)) };
+    };
+    document.body.classList.add('instant');
+    if (q.get('test') === 'dreh') {
+      settings.pad.el.click(); run(90);
+      layout('dreh vorher'); log('dreh fokus pad vorher', focusInfo('pad'));
+      addEventListener('resize', () => { run(2); layout('dreh nachher'); log('dreh fokus pad nachher', focusInfo('pad')); });
+    } else {
+      layout('mobil layout');
+      const hs = Object.values(settings).map((s) => screen(s.node.getWorldPosition(new V3())).map(r0));
+      let md = 1e9;
+      hs.forEach((a, i) => hs.forEach((b, j) => { if (j > i) md = Math.min(md, Math.hypot(a[0] - b[0], a[1] - b[1])); }));
+      log('mobil hotspots', { hs, minDist: r0(md), hint: [$('hint').textContent, getComputedStyle($('hint')).display, $('hint').className] });
+      $('mapbtn').click();
+      const open = [document.body.classList.contains('mapopen'), getComputedStyle($('map')).visibility, rectOf('map')];
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: innerHeight / 2 }));
+      log('mobil karte', { open, closedAfterTapElsewhere: !document.body.classList.contains('mapopen'), aria: $('mapbtn').getAttribute('aria-expanded') });
+      settings.pad.el.click(); run(90);
+      log('mobil hinweis nach fokus', { text: $('hint').textContent, gone: $('hint').classList.contains('gone') });
+      for (const key of ['pad', 'back', 'weight', 'rom']) {
+        if (mode !== key) { setBtns.find((b) => b.dataset.key === key).click(); run(90); }
+        log('mobil fokus ' + key, focusInfo(key));
+      }
+      {  // Gewicht: mit dem Finger 4 Stufen nach oben ziehen (Richtung der Skala), Abstand je Stufe mindestens TOUCH_STEP
+        setBtns.find((b) => b.dataset.key === 'weight').click(); run(90);
+        const s = settings.weight, v0 = s.value, [gx, gy] = screen(s.grab()), [tx, ty] = tangent(s, v0), l = Math.hypot(tx, ty), px = Math.max(l, TOUCH_STEP);
+        touch('pointerdown', gx, gy);
+        for (let i = 1; i <= 20; i++) { touch('pointermove', gx + tx / l * px * 4 * i / 20, gy + ty / l * px * 4 * i / 20); run(1); }
+        touch('pointerup', gx + tx / l * px * 4, gy + ty / l * px * 4); run(60);
+        log('mobil touch ziehen gewicht', { from: v0, value: s.value, expect: clamp(v0 + 4, s.min, s.max), pxPerStepScale: r0(l), pxPerStepFinger: r0(px), mode, hintGone: $('hint').classList.contains('gone') });
+        const v1 = s.value, cx0 = innerWidth / 2, cy0 = innerHeight / 2;  // Pinch mitten im Bild
+        touch('pointerdown', cx0 - 30, cy0 - 20, 11); touch('pointerdown', cx0 + 30, cy0 + 20, 12);
+        for (let i = 1; i <= 10; i++) { touch('pointermove', cx0 - 30 - 6 * i, cy0 - 20 - 9 * i, 11); touch('pointermove', cx0 + 30 + 6 * i, cy0 + 20 + 9 * i, 12); run(1); }
+        touch('pointerup', cx0 - 90, cy0 - 110, 11); touch('pointerup', cx0 + 90, cy0 + 110, 12); run(60);
+        log('mobil pinch im fokus', { mode, from: v1, value: s.value, fingersLeft: fingers.size });
+        let spot = null;                                     // freie Stelle zum Tippen: nicht am Teil, nicht an der Skala, nicht am Wert, kein Hotspot
+        for (let y = innerHeight * 0.3; y < innerHeight * 0.7 && !spot; y += 23) for (let x = 24; x < innerWidth - 24 && !spot; x += 31) {
+          const el = document.elementFromPoint(x, y);
+          if (el === cv && !onPart(s, x, y) && !onCurve(s, x, y) && !onLabel(x, y)) spot = [r0(x), r0(y)];
+        }
+        touch('pointerdown', spot[0], spot[1]); touch('pointermove', spot[0] + 4, spot[1] + 3); touch('pointerup', spot[0] + 4, spot[1] + 3); run(90);
+        log('mobil tippen ins leere (4px zittern)', { at: spot, mode, dark });
+      }
+      {  // Übersicht: ein Finger dreht, zwei Finger zoomen; danach kein Fokus
+        const az = () => Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z) * 180 / Math.PI;
+        const [bx, by] = viewCenter(), a0 = az(), d0 = camera.position.distanceTo(controls.target);
+        cv.setPointerCapture = cv.releasePointerCapture = () => {};                   // künstliche Zeiger lassen sich nicht einfangen (OrbitControls versucht es)
+        touch('pointerdown', bx, by);
+        for (let i = 1; i <= 10; i++) { touch('pointermove', bx + 8 * i, by); run(1); }
+        touch('pointerup', bx + 80, by); run(60);
+        const a1 = az();
+        touch('pointerdown', bx - 20, by, 11); touch('pointerdown', bx + 20, by, 12);
+        for (let i = 1; i <= 10; i++) { touch('pointermove', bx - 20 - 8 * i, by, 11); touch('pointermove', bx + 20 + 8 * i, by, 12); run(1); }
+        touch('pointerup', bx - 100, by, 11); touch('pointerup', bx + 100, by, 12); run(60);
+        log('mobil orbit und pinch', { mode, orbitDeg: r2(a1 - a0), distBefore: r2(d0), distAfterPinch: r2(camera.position.distanceTo(controls.target)) });
+      }
+    }
+  }
+  if (q.get('map') === '1') { document.body.classList.add('instant'); mapOpen(true); void $('map').offsetWidth; }   // ?map=1: Karte aufgeklappt (Standbild)
   if (q.get('view') in HINT) setView(q.get('view'), true);
   else if (q.get('figure') === '1') setView('figur', true);
   if (q.has('mt')) { mt = +q.get('mt'); demoFreeze = true; setArm(DEMO_MAX * demoK(mt)); }
@@ -643,7 +981,8 @@ const unhighlight = () => { original.forEach((mat, m) => (m.material = mat)); or
 function flyTo(view, instant) {
   const to = pose(view);
   if (instant) { setPose(to); fly = null; return; }
-  fly = { t: 0, from: { pos: camera.position.clone(), tgt: controls.target.clone() }, to };
+  const [cx, cy] = viewCenter();
+  fly = { t: 0, from: { pos: camera.position.clone(), tgt: controls.target.clone(), cx, cy }, to, view };
 }
 
 // Leiste im Fokus: Rückenpolster | Gewicht | Fußpolster | Bewegungsumfang, Pille läuft zur aktiven Einstellung
@@ -689,6 +1028,19 @@ function focus(key, instant) {
   for (const [k, o] of Object.entries(settings)) { o.el.classList.toggle('active', k === key); o.el.classList.toggle('quiet', k !== key); }
   syncSets(entering || instant);
   flyTo(VIEW[key], instant);
+  learned.focus = true;
+  hintGone();
+}
+
+// Kompakt: Hinweis nur, bis er befolgt wurde (Punkt angetippt bzw. einmal verstellt)
+const learned = { focus: false, drag: false };
+function hintGone() {
+  $('hint').classList.toggle('gone', compact() && (mode === 'overview' ? view === 'geraet' && learned.focus : learned.drag));
+}
+function fillValue(s) {                                          // Wertanzeige; kompakt wird sie vor dem Rahmen gemessen
+  const val = $('value');
+  val.firstChild.textContent = s.title;
+  val.lastChild.textContent = s.text(s.value);
 }
 
 function overview() {
@@ -701,6 +1053,7 @@ function overview() {
   $('hint').textContent = HINT[view];
   Object.values(settings).forEach((o) => o.el.classList.remove('active', 'quiet'));
   flyTo(VIEW.overview);
+  hintGone();
 }
 
 function setValue(v) {
@@ -751,14 +1104,19 @@ function onPart(s, x, y) {
 }
 function onLabel(x, y) { const r = $('value').getBoundingClientRect(); return x > r.left - 8 && x < r.right + 8 && y > r.top - 8 && y < r.bottom + 8; }
 
-let drag = null, lastU = null, lastJump = null;                         // { id, x0, y0, x, y, u, moved, keep, changed }; lastU für die Tests
+let drag = null, lastU = null, lastJump = null;                         // { id, x0, y0, x, y, u, moved, keep, changed, multi }; lastU für die Tests
 const cv = renderer.domElement;
+// Touch: ein zweiter Finger (Pinch) macht aus dem Ziehen nichts mehr – kein Verstellen, kein „Fertig" beim Loslassen.
+// Mindestens TOUCH_STEP px Fingerweg je Stufe, damit eng stehende Raststriche (Gewicht, kleine Bildschirme) gut treffbar bleiben.
+const fingers = new Set(), TOUCH_STEP = 18, TOUCH_MOVE_R = 10;
 cv.addEventListener('pointerdown', (e) => {
+  fingers.add(e.pointerId);
+  if (drag && fingers.size > 1 && !drag.multi) { drag.multi = true; setValue(drag.v0); settings[mode] && (settings[mode].pull = 0); }   // Pinch: Sprung zurücknehmen
   const s = settings[mode];
   if (!s || drag) return;
   const part = onPart(s, e.clientX, e.clientY);
   const v = nearTick(s, e.clientX, e.clientY, part ? TICK_PART_R : TICK_R);   // am Teil selbst springt es nur bei genauem Treffer
-  drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, moved: false, jump: v,
+  drag = { id: e.pointerId, v0: s.value, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, moved: false, jump: v,
            keep: part || v !== null || onCurve(s, e.clientX, e.clientY) || onLabel(e.clientX, e.clientY) };
   if (v !== null) setValue(v);
   drag.u = s.value;
@@ -767,11 +1125,13 @@ cv.addEventListener('pointerdown', (e) => {
 });
 cv.addEventListener('pointermove', (e) => {
   const s = settings[mode];
-  if (!drag || e.pointerId !== drag.id || !s) return;
+  if (!drag || e.pointerId !== drag.id || !s || drag.multi) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
   drag.x = e.clientX; drag.y = e.clientY;
-  if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > MOVE_R) drag.moved = true;
-  const [tx, ty] = tangent(s, clamp(drag.u, s.min, s.max)), l2 = tx * tx + ty * ty;
+  if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > (touch ? TOUCH_MOVE_R : MOVE_R)) drag.moved = true;
+  let [tx, ty] = tangent(s, clamp(drag.u, s.min, s.max)), l2 = tx * tx + ty * ty;
+  if (touch && l2 >= 1 && l2 < TOUCH_STEP ** 2) { const k = TOUCH_STEP / Math.sqrt(l2); tx *= k; ty *= k; l2 = TOUCH_STEP ** 2; }
   if (l2 < 1) return;
   drag.u = clamp(drag.u + (dx * tx + dy * ty) / l2, s.min - 0.45, s.max + 0.45);   // etwas Spiel an den Enden, Umkehr greift sofort
   const before = s.value;
@@ -781,7 +1141,8 @@ cv.addEventListener('pointermove', (e) => {
 });
 function release(e, cancel) {
   if (!drag || (e && e.pointerId !== drag.id)) return;
-  const click = !cancel && !drag.moved && !drag.keep && !drag.changed;
+  const click = !cancel && !drag.moved && !drag.keep && !drag.changed && !drag.multi;
+  if (drag.changed && drag.moved) { learned.drag = true; hintGone(); }
   lastU = drag.u; lastJump = drag.jump;
   for (const s of Object.values(settings)) s.pull = 0;
   drag = null;
@@ -790,6 +1151,7 @@ function release(e, cancel) {
 }
 cv.addEventListener('pointerup', (e) => release(e));
 cv.addEventListener('pointercancel', (e) => release(e, true));
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => fingers.delete(e.pointerId), true);
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape') overview();
   if (e.key === 'ArrowUp' || e.key === 'ArrowRight') step(1);
@@ -827,12 +1189,26 @@ function drawCurve(s) {
     : `translate(${x - 26}px, ${y}px) translate(-100%, -50%)`;
 }
 
-addEventListener('resize', () => {
+// Größe/Drehung: kompakt wird neu gerahmt (Übersicht behält die Blickrichtung, falls gedreht wurde; Fokus und laufende
+// Kamerafahrt bekommen ihr neues Ziel); Hotspots und Kurve folgen ohnehin jedem Bild
+let wasCompact = compact();
+function onResize() {
   syncSets(true);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-});
+  const now = compact();
+  if (!now && !wasCompact) return;                                // Desktop wie bisher
+  wasCompact = now;
+  fitCache.clear();
+  if (intro || (window.INTRO && !introDone)) { placeLeds(now ? pose(VIEW.overview) : null); return; }   // Intro rahmt jedes Bild selbst
+  if (fly) fly.to = pose(fly.view);
+  else if (mode !== 'overview') setPose(pose(VIEW[mode]));
+  else setPose(pose(VIEW.overview, camera.position.clone().sub(controls.target)));
+  placeLeds(now ? pose(VIEW.overview) : null);
+}
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(onResize, 250));   // iOS meldet die neue Größe teils verspätet
 
 // ---------------------------------------------------------------- Intro: das Gerät setzt sich als technische Zeichnung zusammen
 // Zeitplan (s): 0–1,1 feine weiße Linien zeichnen sich von unten nach oben; die Teile stehen in Explosionsdarstellung entlang
@@ -860,7 +1236,7 @@ const ASSEMBLY = {   // Explosionsweg in Weltkoordinaten (m) bzw. entlang der Sc
 };
 const PLATES = { t0: 0.8, stagger: 0.04, dur: 0.62, lift: 0.12, gap: 0.028, draw: 0.15 };   // Platte j (von unten): lift + j · gap höher
 const INTRO_UI = [['title', 3.7], ['top', 3.85], ['map', 3.95], ['logo', 4.0], ['dock', 4.1], ['hotspots', 4.25]];
-let intro = null, introDone = false;
+let intro = null, introDone = false, introWide = 0.06;   // introWide: Startabstand des Intros über dem Endabstand (Anteil)
 const span = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
 const bezier = (x1, y1, x2, y2) => (x) => {             // wie CSS cubic-bezier
   let t = x;
@@ -982,7 +1358,16 @@ function startIntro(freezeAt) {                         // freezeAt: 0..1 hält 
     group.add(L); lines.push(L);
   });
   scene.add(group);
-  intro = { t: (freezeAt ?? 0) * INTRO_T, freeze: freezeAt != null, parts, base, group, lines, orbit: controls.enabled };
+  introWide = 0.06;
+  if (compact() && buildFrame) {                        // kompakt: so weit zurück starten, dass die Explosionsdarstellung ins Band passt
+    parts.forEach((p) => p.dur && p.o.position.copy(p.p0).add(p.off));
+    machine.updateMatrixWorld(true);
+    const wide = fitPose(sample([machine], 2400).map((p) => ({ p, m: 16 })), new V3(...VIEW.overview.dir), false, 1).dist;
+    parts.forEach((p) => p.dur && p.o.position.copy(p.p0));
+    machine.updateMatrixWorld(true);
+    introWide = Math.max(0.06, wide / pose(VIEW.overview).dist - 0.78);
+  }
+  intro = { t: (freezeAt ?? 0) * INTRO_T, freeze: freezeAt != null, parts, base, group, lines, orbit: controls.enabled, frame: 0 };
   introDone = false;
   controls.enabled = false;
   document.documentElement.classList.add('intro');
@@ -1005,7 +1390,7 @@ function introStep(dt) {
     p.mat.uniforms.reveal.value = -0.15 + 1.3 * OUT(span(t, p.draw, p.draw + 0.6));
   }
   I.group.visible = fade > 0;
-  if (fade > 0) I.lines.forEach(contour);
+  if (fade > 0 && (!LOW || I.frame++ % 2 === 0)) I.lines.forEach(contour);   // LOW: Umrisse jedes zweite Bild (Kamera fährt langsam)
   introStage(t);
   if (t >= INTRO_T && !I.freeze) finishIntro();
 }
@@ -1019,10 +1404,11 @@ function introStage(t) {                                // Licht, LED-Linien, Ka
   const k = MOVE(span(t, 3.0, 3.95));                   // LED-Linien wachsen vom Boden nach oben, Spiegelung nach unten
   ledParts.forEach((o, i) => { o.visible = k > 1e-3; o.position.y = LED_BASE[i].y * k; o.scale.y = LED_BASE[i].s * Math.max(k, 1e-3); });
   const end = pose(VIEW.overview), e = 1 - CAM(span(t, 0, 4.0));   // von etwas weiter, höher und 14° seitlich
-  const off = end.pos.clone().sub(end.tgt).applyAxisAngle(new V3(0, 1, 0), rad(14) * e).multiplyScalar(1 + 0.06 * e);
+  const off = end.pos.clone().sub(end.tgt).applyAxisAngle(new V3(0, 1, 0), rad(14) * e).multiplyScalar(1 + introWide * e);
   off.y += 0.2 * e;
   controls.target.copy(end.tgt);
   camera.position.copy(end.tgt).add(off);
+  applyView(camera, end);
   for (const [id, t0] of INTRO_UI) {
     const u = OUT(span(t, t0, t0 + 0.6)), el = $(id);
     el.style.opacity = u.toFixed(3);
@@ -1118,6 +1504,7 @@ function tick(dt) {
     const k = ease(fly.t);
     camera.position.lerpVectors(fly.from.pos, fly.to.pos, k);
     controls.target.lerpVectors(fly.from.tgt, fly.to.tgt, k);
+    if (fly.to.cx != null) applyView(camera, { cx: lerp(fly.from.cx, fly.to.cx, k), cy: lerp(fly.from.cy, fly.to.cy, k) });
     if (fly.t === 1) { fly = null; controls.enabled = mode === 'overview'; }
   }
   if (dark !== darkTo) {                                 // Abdunkeln
