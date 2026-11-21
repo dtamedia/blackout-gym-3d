@@ -164,7 +164,7 @@
   :is(#cuepill, #cuepill-m) .r1 { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; font-size: var(--pill-fs); line-height: 20px; }
   :is(#cuepill, #cuepill-m) .v { font-weight: 600; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
   :is(#cuepill, #cuepill-m) .t { font-weight: 500; color: rgba(255,255,255,.94); }
-  :is(#cuepill, #cuepill-m) .r2 { height: 0; opacity: 0; overflow: hidden; transition: height .65s cubic-bezier(.625,.05,0,1), opacity .65s cubic-bezier(.625,.05,0,1); }   /* Osmo-Ease: CustomEase "M0,0 C0.625,0.05 0,1 1,1" */
+  :is(#cuepill, #cuepill-m) .r2 { height: 0; opacity: 0; overflow: hidden; }   /* kein Aufklappen: beide Zeilen stehen sofort (Alex, 21.11.2026) */
   :is(#cuepill, #cuepill-m) .r2 p { margin: 0; padding-top: 3px; width: max-content; max-width: var(--pill-max); font-size: var(--pill-sub-fs); line-height: 16px;
                    color: var(--pill-sub); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   /* Schmaler: Umschalter ganz unten, Titel und Logo rücken darüber */
@@ -2241,7 +2241,7 @@ function drawCues(dt = 0) {
   el.firstChild.style.opacity = (ta * o).toFixed(3);
   const val = cueValue(content); if (val != null) el.querySelector('.v').textContent = val;
   // Zeile 2 klappt 0,35 s nach dem Text auf (Höhe + Deckkraft); Zeile 1 bleibt stehen (Pille wächst nach unten)
-  const open = !!content.cue.sub && (CALM || content.a - textAt(content) >= 0.35);
+  const open = !!content.cue.sub;
   if (open !== PILL.open) { PILL.open = open; const r2 = el.querySelector('.r2'); r2.style.height = (open ? PILL.r2h : 0) + 'px'; r2.style.opacity = open ? 1 : 0; }
   el.style.opacity = dot.style.opacity = bg.toFixed(3);
   dot.style.transform = `translate(${ax.toFixed(1)}px, ${ay.toFixed(1)}px)`;
